@@ -1,0 +1,58 @@
+# fly.toml app configuration file generated for tykon-soketi on 2025-06-01T00:45:31+02:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = "tykon-soketi"
+primary_region = "lax"
+
+[build]
+  image = "quay.io/soketi/soketi:latest-16-alpine"
+
+[env]
+  SOKETI_DEBUG = "0"
+  SOKETI_DEFAULT_APP_ID = "tykon-app"
+  SOKETI_DEFAULT_APP_KEY = "tykon-key"
+  SOKETI_DEFAULT_APP_SECRET = "tykon-secret"
+  SOKETI_DEFAULT_HOST = "0.0.0.0"
+  SOKETI_DEFAULT_PORT = "8080"
+  SOKETI_DEFAULT_ALLOW_CLIENT_EVENTS = "true"
+  SOKETI_DEFAULT_ALLOW_STATS = "true"
+  SOKETI_DEFAULT_ALLOW_PRESENCE = "true"
+  SOKETI_DEFAULT_ENABLE_CLIENTS = "true"
+  SOKETI_DEFAULT_ENABLE_STATS = "true"
+  SOKETI_DEFAULT_ENABLE_PRESENCE = "true"
+  SOKETI_DEFAULT_ENABLE_LOGS = "true"
+  SOKETI_DEFAULT_ENABLE_METRICS = "true"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[services]]
+  protocol = ''
+  internal_port = 0
+
+  [[services.ports]]
+    port = 80
+    handlers = ['http']
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ['tls', 'http']
+
+  [[services.tcp_checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '30s'
+    restart_limit = 3
+
+[[vm]]
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1

@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model Room {
+    id            String        @id @default(cuid())
+    text          String
+    status        String        @default("WAITING")
+    createdAt     DateTime      @default(now())
+    updatedAt     DateTime      @updatedAt
+    createdBy     String
+    owner         Player        @relation("OwnerRoom", fields: [createdBy], references: [id])
+    players       Player[]      @relation("RoomPlayers")
+    performances  Performance[]
+}
+
+model Player {
+    id            String        @id @default(cuid())
+    name          String
+    progress      Float         @default(0)
+    wpm           Float         @default(0)
+    accuracy      Float         @default(100)
+    completed     Boolean       @default(false)
+    input         String        @default("")
+    roomId        String?
+    room          Room?         @relation("RoomPlayers", fields: [roomId], references: [id])
+    performances  Performance[]
+    ownedRoom     Room[]        @relation("OwnerRoom")
+    createdAt     DateTime      @default(now())
+    updatedAt     DateTime      @updatedAt
+    rematchRequested Boolean   @default(false)
+    newGameRequested Boolean   @default(false)
+}
+
+model Game {
+    id        String   @id @default(cuid())
+    wpm       Float
+    accuracy  Float
+    timeTaken Int
+    text      String
+    createdAt DateTime @default(now())
+}
+
+model Performance {
+    id        String   @id @default(cuid())
+    playerId  String
+    roomId    String
+    wpm       Float
+    accuracy  Float
+    completed Boolean  @default(false)
+    createdAt DateTime @default(now())
+    player    Player   @relation(fields: [playerId], references: [id])
+    room      Room     @relation(fields: [roomId], references: [id])
+
+    @@unique([playerId, roomId])
+}

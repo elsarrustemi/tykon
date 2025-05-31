@@ -1,0 +1,48 @@
+version: '3'
+
+services:
+  soketi:
+    image: quay.io/soketi/soketi:latest-16-alpine
+    container_name: tykon-soketi
+    environment:
+      SOKETI_DEBUG: '1'
+      SOKETI_DEFAULT_APP_ID: 'app-id'
+      SOKETI_DEFAULT_APP_KEY: 'app-key'
+      SOKETI_DEFAULT_APP_SECRET: 'app-secret'
+      SOKETI_DEFAULT_HOST: '0.0.0.0'
+      SOKETI_DEFAULT_PORT: '6001'
+      SOKETI_DEFAULT_ALLOW_CLIENT_EVENTS: 'true'
+      SOKETI_DEFAULT_ALLOW_STATS: 'true'
+      SOKETI_DEFAULT_ALLOW_PRESENCE: 'true'
+    ports:
+      - "6001:6001"
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: tykon-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tykon
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data: 
