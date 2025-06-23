@@ -38,7 +38,6 @@ export async function POST(req: Request) {
       playerId,
     });
 
-    // If no players left, delete the room
     if (room.players.length <= 1) {
       await prisma.room.delete({
         where: { id: roomId },

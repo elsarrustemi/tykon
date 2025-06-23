@@ -23,7 +23,6 @@ export default function RootLayout({
       <body className={`font-sans ${inter.variable}`}>
         <TRPCReactProvider>
           <div className="min-h-screen bg-white">
-            {/* <Navigation /> Removed to prevent duplicate navbar */}
             <main>{children}</main>
           </div>
         </TRPCReactProvider>

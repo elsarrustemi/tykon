@@ -38,7 +38,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Check if player already exists in the room
     const existingPlayer = await prisma.player.findUnique({
       where: { id: playerId },
     });

@@ -15,8 +15,8 @@ const getPusherConfig = () => {
     wsPort: port ? parseInt(port, 10) : 6001,
     forceTLS: process.env.NODE_ENV === 'production',
     enabledTransports: ['ws', 'wss'],
-    cluster: 'mt1', // Default cluster for local development
-    disableStats: true, // Disable stats for local development
+    cluster: 'mt1', 
+    disableStats: true, 
   };
 };
 

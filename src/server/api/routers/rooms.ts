@@ -37,55 +37,56 @@ export const roomsRouter = createTRPCRouter({
       playerName: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { playerId, playerName } = input;
-      const { content: quote } = await fetchQuote();
+      try {
+        const { playerId, playerName } = input;
+        const { content: quote } = await fetchQuote();
 
-      // First create or get the player
-      const player = await ctx.prisma.player.upsert({
-        where: { id: playerId },
-        create: {
-          id: playerId,
-          name: playerName,
-          progress: 0,
-          wpm: 0,
-          accuracy: 100,
-          completed: false,
-        },
-        update: {
-          name: playerName,
-        },
-      });
-
-      // Then create the room with the quote
-      const room = await ctx.prisma.room.create({
-        data: {
-          text: quote,
-          status: "WAITING",
-          createdBy: playerId,
-          players: {
-            connect: { id: playerId }
+        const player = await ctx.prisma.player.upsert({
+          where: { id: playerId },
+          create: {
+            id: playerId,
+            name: playerName,
+            progress: 0,
+            wpm: 0,
+            accuracy: 100,
+            completed: false,
           },
-        },
-        include: {
-          players: true,
-        },
-      });
+          update: {
+            name: playerName,
+          },
+        });
 
-      // Update player's roomId
-      await ctx.prisma.player.update({
-        where: { id: playerId },
-        data: { roomId: room.id }
-      });
+        const room = await ctx.prisma.room.create({
+          data: {
+            text: quote,
+            status: "WAITING",
+            createdBy: playerId,
+            players: {
+              connect: { id: playerId }
+            },
+          },
+          include: {
+            players: true,
+          },
+        });
 
-      await pusher.trigger(
-        CHANNELS.ROOM(room.id),
-        EVENTS.PLAYER_JOINED,
-        {
-          player: room.players[0],
-        }
-      );
+        await ctx.prisma.player.update({
+          where: { id: playerId },
+          data: { roomId: room.id }
+        });
 
-      return { roomId: room.id, text: quote, room };
+        await pusher.trigger(
+          CHANNELS.ROOM(room.id),
+          EVENTS.PLAYER_JOINED,
+          {
+            player: room.players[0],
+          }
+        );
+
+        return { roomId: room.id, text: quote, room };
+      } catch (error) {
+        throw error;
+      }
     }),
 
   join: protectedProcedure
@@ -106,18 +107,15 @@ export const roomsRouter = createTRPCRouter({
         throw new Error("Room not found");
       }
 
-      // Check if room is full (2 players)
       if (room.players.length >= 2) {
         throw new Error("Room is full");
       }
 
-      // Check if player already exists in the room
       const existingPlayer = room.players.find((p: { id: string }) => p.id === playerId);
       if (existingPlayer) {
         return { room, players: room.players };
       }
 
-      // Create or update player
       const player = await ctx.prisma.player.upsert({
         where: { id: playerId },
         create: {
@@ -169,11 +167,10 @@ export const roomsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { roomId, playerId, progress, wpm, accuracy } = input;
 
-      // Update player progress in the database
       const player = await ctx.prisma.player.update({
         where: { 
           id: playerId,
-          roomId: roomId // Ensure player belongs to the room
+          roomId: roomId
         },
         data: {
           progress,
@@ -182,7 +179,6 @@ export const roomsRouter = createTRPCRouter({
         },
       });
 
-      // Create or update performance record
       const performance = await ctx.prisma.performance.upsert({
         where: {
           playerId_roomId: {
@@ -203,7 +199,6 @@ export const roomsRouter = createTRPCRouter({
         },
       });
 
-      // Send performance update through Pusher
       await pusher.trigger(
         CHANNELS.ROOM(roomId),
         EVENTS.TYPING_UPDATE,
@@ -229,7 +224,6 @@ export const roomsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { roomId, playerId, wpm, accuracy } = input;
 
-      // Update player status
       await ctx.prisma.player.update({
         where: { id: playerId },
         data: {
@@ -239,7 +233,6 @@ export const roomsRouter = createTRPCRouter({
         },
       });
 
-      // Create performance record
       await ctx.prisma.performance.upsert({
         where: {
           playerId_roomId: {
@@ -313,15 +306,12 @@ export const roomsRouter = createTRPCRouter({
         });
       }
 
-      // First trigger countdown event
       await pusher.trigger(CHANNELS.ROOM(input.roomId), EVENTS.COUNTDOWN_START, {
         roomId: input.roomId,
       });
 
-      // Wait for 3 seconds
       await new Promise(resolve => setTimeout(resolve, 3000));
 
-      // Update room status
       const updatedRoom = await ctx.prisma.room.update({
         where: { id: input.roomId },
         data: { status: "IN_PROGRESS" },
@@ -335,7 +325,6 @@ export const roomsRouter = createTRPCRouter({
         },
       });
 
-      // Reset all players' stats
       await ctx.prisma.player.updateMany({
         where: { roomId: input.roomId },
         data: {
@@ -346,12 +335,10 @@ export const roomsRouter = createTRPCRouter({
         },
       });
 
-      // Clear all performances for this room
       await ctx.prisma.performance.deleteMany({
         where: { roomId: input.roomId },
       });
 
-      // Trigger game start event for all players
       await pusher.trigger(CHANNELS.ROOM(input.roomId), EVENTS.GAME_START, {
         roomId: input.roomId,
         status: "IN_PROGRESS",
@@ -386,10 +373,8 @@ export const roomsRouter = createTRPCRouter({
         throw new Error("Room not found");
       }
 
-      // Get the leaving player's stats before disconnecting
       const leavingPlayer = room.players.find((p: { id: string }) => p.id === playerId);
       if (leavingPlayer) {
-        // Create a performance record for the leaving player
         await ctx.prisma.performance.upsert({
           where: {
             playerId_roomId: {
@@ -412,26 +397,21 @@ export const roomsRouter = createTRPCRouter({
         });
       }
 
-      // If the leaving player is the owner, remove all players
       if (room.createdBy === playerId) {
-        // Delete all performances for this room
         await ctx.prisma.performance.deleteMany({
           where: { roomId },
         });
 
-        // Update all players to remove room reference
         await ctx.prisma.player.updateMany({
           where: { roomId },
           data: { roomId: null },
         });
 
-        // Update room status to COMPLETED
         await ctx.prisma.room.update({
           where: { id: roomId },
           data: { status: "COMPLETED" },
         });
 
-        // Notify all players that the room is closed and they should redirect
         await pusher.trigger(
           CHANNELS.ROOM(roomId),
           EVENTS.PLAYER_LEFT,
@@ -444,7 +424,6 @@ export const roomsRouter = createTRPCRouter({
           }
         );
       } else {
-        // If not the owner, just remove this player
         await ctx.prisma.performance.deleteMany({
           where: {
             playerId: playerId,
@@ -452,13 +431,11 @@ export const roomsRouter = createTRPCRouter({
           },
         });
 
-        // Update player to remove room reference
         await ctx.prisma.player.update({
           where: { id: playerId },
           data: { roomId: null },
         });
 
-        // Update room status to COMPLETED if game was in progress
         if (room.status === "IN_PROGRESS") {
           await ctx.prisma.room.update({
             where: { id: roomId },
@@ -483,15 +460,12 @@ export const roomsRouter = createTRPCRouter({
     }),
 
   getStats: protectedProcedure.query(async ({ ctx }) => {
-    // For demo: get playerId from header (in real app, use session)
     const playerId = ctx.req.headers["x-player-id"] as string | undefined;
 
-    // Online players: players with a non-null roomId
     const onlinePlayers = await ctx.prisma.player.count({
       where: { roomId: { not: null } },
     });
 
-    // Active races: rooms with status 'IN_PROGRESS'
     const activeRaces = await ctx.prisma.room.count({
       where: { status: "IN_PROGRESS" },
     });
@@ -499,7 +473,6 @@ export const roomsRouter = createTRPCRouter({
     let bestWpm = null;
     let recentAverage = null;
     if (playerId) {
-      // Best WPM from performances
       const best = await ctx.prisma.performance.findFirst({
         where: { 
           playerId,
@@ -509,7 +482,6 @@ export const roomsRouter = createTRPCRouter({
       });
       bestWpm = best?.wpm ?? null;
 
-      // Recent average (last 5 completed performances)
       const recent = await ctx.prisma.performance.findMany({
         where: { 
           playerId,
@@ -549,10 +521,8 @@ export const roomsRouter = createTRPCRouter({
         throw new Error("Room not found");
       }
 
-      // Fetch a new quote
       const { content: quote } = await fetchQuote();
 
-      // Create a new room with the new quote
       const newRoom = await ctx.prisma.room.create({
         data: {
           text: quote,

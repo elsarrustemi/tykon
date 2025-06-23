@@ -61,7 +61,6 @@ const DuelRoomPage = ({ params }: { params: Promise<{ roomId: string }> }) => {
   const startTimeRef = useRef<Date | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
 
-  // Query to get room data
   const roomQuery = api.rooms.get.useQuery(
     { roomId: roomId ?? "" },
     { enabled: !!roomId }
@@ -69,14 +68,12 @@ const DuelRoomPage = ({ params }: { params: Promise<{ roomId: string }> }) => {
 
   const room = roomQuery.data?.room;
 
-  // Calculate current player's stats
   const currentPlayer = players.find((p: Player) => p.id === playerId);
   const wpm = currentPlayer?.wpm ?? 0;
   const accuracy = currentPlayer?.accuracy ?? 100;
   const progress = currentPlayer?.progress ?? 0;
   const text = room?.text ?? "";
 
-  // Mutations
   const updateProgressMutation = api.rooms.updateProgress.useMutation();
   const completeGameMutation = api.rooms.completeGame.useMutation();
   const startGameMutation = api.rooms.start.useMutation();
@@ -108,7 +105,6 @@ const DuelRoomPage = ({ params }: { params: Promise<{ roomId: string }> }) => {
     }
   }, [roomId, input, startTime, text, playerId]);
 
-  // Add timer effect
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (isTyping && timeLeft !== null && timeLeft > 0) {
@@ -116,7 +112,6 @@ const DuelRoomPage = ({ params }: { params: Promise<{ roomId: string }> }) => {
         const remainingTime = calculateTimeLeft();
         setTimeLeft(remainingTime);
         
-        // Calculate WPM every second
         const currentWpm = calculateWPM(input, startTime);
         if (currentPlayer) {
           currentPlayer.wpm = currentWpm;
@@ -125,14 +120,13 @@ const DuelRoomPage = ({ params }: { params: Promise<{ roomId: string }> }) => {
         if (remainingTime === 0) {
           void handleGameEnd();
         }
-      }, 100); // Update more frequently for smoother countdown
+      }, 100); 
     }
     return () => {
       if (timer) clearInterval(timer);
     };
   }, [isTyping, input, startTime, currentPlayer, handleGameEnd]);
 
-  // Reset timer when game starts
   useEffect(() => {
     if (room?.status === "IN_PROGRESS" && !countdown) {
       startTimeRef.current = new Date();
@@ -140,7 +134,6 @@ const DuelRoomPage = ({ params }: { params: Promise<{ roomId: string }> }) => {
     }
   }, [room?.status, timeLimit, countdown, startTimeRef]);
 
-  // Handle game end when time runs out
   useEffect(() => {
     if (timeLeft === 0) {
       void handleGameEnd();
@@ -197,11 +190,10 @@ const DuelRoomPage = ({ params }: { params: Promise<{ roomId: string }> }) => {
         setCountdown(prev => {
           if (prev === null || prev <= 1) {
             clearInterval(countdownInterval);
-            // Start the game timer immediately when countdown ends
             startTimeRef.current = new Date();
             setTimeLeft(timeLimit);
             setStartTime(new Date());
-            setIsTyping(true); // Enable typing when countdown ends
+            setIsTyping(true); 
             return null;
           }
           return prev - 1;
@@ -211,13 +203,11 @@ const DuelRoomPage = ({ params }: { params: Promise<{ roomId: string }> }) => {
   
     const handleGameStart = () => {
       console.log('Game started');
-      void roomQuery.refetch();
-      // Reset game state for both players
+      void roomQuery.refetch();   
       setInput("");
       setIsTyping(true);
       setShowResults(false);
       
-      // Reset player stats
       setPlayers(prev => prev.map(player => ({
         ...player,
         progress: 0,
@@ -226,7 +216,6 @@ const DuelRoomPage = ({ params }: { params: Promise<{ roomId: string }> }) => {
         completed: false
       })));
 
-      // Reset performances
       setPerformances([]);
     };
 
@@ -237,7 +226,6 @@ const DuelRoomPage = ({ params }: { params: Promise<{ roomId: string }> }) => {
       accuracy: number;
       performance: Performance;
     }) => {
-      // Update performances state with the new performance data
       setPerformances(prev => {
         const existingIndex = prev.findIndex(p => p.id === data.performance.id);
         if (existingIndex >= 0) {
@@ -248,7 +236,6 @@ const DuelRoomPage = ({ params }: { params: Promise<{ roomId: string }> }) => {
         return [...prev, data.performance];
       });
 
-      // Update local player state immediately
       setPlayers(prev => {
         const updated = [...prev];
         const playerIndex = updated.findIndex(p => p.id === data.playerId);
@@ -297,8 +284,6 @@ const DuelRoomPage = ({ params }: { params: Promise<{ roomId: string }> }) => {
     };
   }, [pusher, roomId, roomQuery, router]);
 
-  console.log(countdown,"countdown")
-  // Initialize player ID and name from localStorage
   useEffect(() => {
     const storedId = localStorage.getItem('playerId');
     const storedName = localStorage.getItem('playerName');
@@ -428,7 +413,6 @@ const DuelRoomPage = ({ params }: { params: Promise<{ roomId: string }> }) => {
     }
   };
 
-  // Update players when room data changes
   useEffect(() => {
     if (room?.players) {
       setPlayers(room.players);

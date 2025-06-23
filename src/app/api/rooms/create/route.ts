@@ -32,20 +32,17 @@ export async function POST(req: Request) {
       include: { players: true },
     });
 
-    // Check if player already exists in any room
     const existingPlayer = await prisma.player.findUnique({
       where: { id: playerId },
     });
 
     let player;
     if (existingPlayer) {
-      // Update existing player's room
       player = await prisma.player.update({
         where: { id: playerId },
         data: { roomId },
       });
     } else {
-      // Create new player
       player = await prisma.player.create({
         data: {
           id: playerId,
